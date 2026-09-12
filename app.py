@@ -1,46 +1,63 @@
-import os, requests, threading, time
-from flask import Flask, request
+import os
 import yfinance as yf
+from flask import Flask, request
+import requests
+import threading
+import time
 
-BOT_TOKEN = "8942374145:AAHKpOwaoqhVD5i-jToSZX2tGN-MhZUTDTY"
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 app = Flask(__name__)
+
 alerts = {}
 
-def get_nifty_data(symbol="^NSEI"):
+def get_live(symbol):
     try:
-        t = yf.Ticker(symbol)
-        data = t.history(period="1d", interval="1m").tail(1)
-        if data.empty: return None
-        price = round(float(data['Close'].iloc[-1]), 2)
-        open_price = float(data['Open'].iloc[0])
-        change = round(price - open_price, 2)
-        pct = round((change/open_price)*100, 2)
-        return price, change, pct
-    except: return None
+        d = yf.Ticker(symbol).history(period="1d")
+        if d.empty: return None
+        return round(float(d['Close'].iloc[-1]), 2)
+    except:
+        return None
 
 def send_msg(chat_id, text):
-    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        requests.post(url, json={"chat_id": chat_id, "text": text})
+    except:
+        pass
 
-def check_alerts():
-    while True:
-        try:
-            info = get_nifty_data("^NSEI")
-            if info:
-                price, _, _ = info
-                for chat_id, levels in list(alerts.items()):
-                    for lvl in levels[:]:
-                        if abs(price - lvl) <= 5:
-                            send_msg(chat_id, f"🔔 *ALERT!* Nifty *{price}* ne *{lvl}* cross kiya!")
-                            alerts[chat_id].remove(lvl)
-        except: pass
-        time.sleep(30)
-
-threading.Thread(target=check_alerts, daemon=True).start()
-
-@app.route('/' + BOT_TOKEN, methods=['POST'])
+@app.route('/', methods=['POST'])
 def webhook():
     data = request.get_json()
-    if "message" in data:
+    if "message" in data and "text" in data["message"]:
         chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text","").strip()
+        text = data["message"]["text"].strip()
+
         if text == "/start":
+            send_msg(chat_id, "Nifty76 Live Bot Ready! 🚀\n/nifty - Live Nifty\n/banknifty - Live BankNifty\n/alert 24500 - Set Alert")
+        elif text == "/nifty":
+            p = get_live("^NSEI")
+            if p:
+                send_msg(chat_id, f"📈 NIFTY 50: {p}")
+            else:
+                send_msg(chat_id, "Market closed hai bhai")
+        elif text == "/banknifty":
+            p = get_live("^NSEBANK")
+            if p:
+                send_msg(chat_id, f"🏦 BANKNIFTY: {p}")
+            else:
+                send_msg(chat_id, "Market closed")
+        elif text.startswith("/alert"):
+            try:
+                level = float(text.split()[1])
+                alerts[chat_id] = level
+                send_msg(chat_id, f"✅ Alert set at {level}")
+            except:
+                send_msg(chat_id, "Use: /alert 24500")
+    return "ok"
+
+@app.route('/')
+def home():
+    return "Nifty76 Bot Live"
+
+if __name__ == "__main__":
+    app.run()
