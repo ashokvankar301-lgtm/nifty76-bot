@@ -1,24 +1,24 @@
 import os
+import requests
 from flask import Flask, request
-import telebot
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8942374145:AAHKpOwaoqhVD5i-jToSZX2tGN-MhZUTDTY")
-bot = telebot.TeleBot(BOT_TOKEN)
+BOT_TOKEN = "8942374145:AAHKpOwaoqhVD5i-jToSZX2tGN-MhZUTDTY"
 app = Flask(__name__)
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "Jai Shree Ram Bhai! Bot Live ho gaya hai 🚀 Nifty 76 ready hai!")
-
-@bot.message_handler(func=lambda m: True)
-def all_msg(message):
-    bot.reply_to(message, "Bolo kya chahiye?")
 
 @app.route('/' + BOT_TOKEN, methods=['POST'])
 def webhook():
-    json_str = request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_str)
-    bot.process_new_updates([update])
+    data = request.get_json()
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
+        
+        if text == "/start":
+            reply = "Jai Shree Ram Bhai! 🚀 Bot Live ho gaya hai! Nifty 76 ready hai!"
+        else:
+            reply = "Bolo kya chahiye?"
+        
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
+                      json={"chat_id": chat_id, "text": reply})
     return "ok", 200
 
 @app.route('/')
@@ -26,5 +26,4 @@ def home():
     return "Nifty76 Bot is Live!"
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
