@@ -1,40 +1,36 @@
 from flask import Flask, request
-import requests, os
+import os, requests
 
 app = Flask(__name__)
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+TOKEN = os.environ.get("BOT_TOKEN")
 
-def send_msg(chat_id, text):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+def reply(chat_id, text):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
 
-@app.route('/', methods=['POST'])
+@app.route("/")
+def home():
+    return "Nifty76 Bot Live Hai!"
+
+@app.route("/webhook", methods=["POST"])
+@app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     data = request.get_json()
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text","").lower()
-        
-        if "/start" in text:
-            msg = """*Jai Shree Ram Bhai! 🚀*
+        msg = data["message"].get("text", "")
 
-*Nifty 76 Bot Ready Hai!*
-
-Commands:
-📊 `/nifty` - Nifty 50 Live
-📈 `/banknifty` - Bank Nifty
-🔥 `/signals` - Aaj ke signals
-
-Bolo kya chahiye?"""
-            send_msg(chat_id, msg)
-        
-        elif "nifty" in text or "bank" in text or "signal" in text:
-            send_msg(chat_id, "Bhai abhi Nifty 76 ka full logic add kar raha hu... 2 min me live indicators aayenge! 📈")
-        
+        if msg == "/start":
+            reply(chat_id, "Jai Shree Ram Bhai! 🙏\n\n<b>Nifty 76 Bot Ready Hai!</b>\n/nifty - Nifty 50 Live\n/banknifty - Bank Nifty Live\n/signals - Aaj ke Signals")
+        elif msg == "/nifty":
+            reply(chat_id, "📈 Nifty 50: 22,450 (Demo) \nTrend: Bullish Hai Bhai!")
+        elif msg == "/banknifty":
+            reply(chat_id, "🏦 Bank Nifty: 48,200 (Demo)\nTrend: Sideways")
+        elif msg == "/signals":
+            reply(chat_id, "🎯 Aaj ka Signal:\nNIFTY 22500 CE - BUY\nSL: 80 | Target: 150")
+        else:
+            reply(chat_id, f"Tune bheja: {msg}\n/start dabaa menu ke liye!")
     return "ok"
 
-@app.route('/')
-def home(): return "Nifty76 Bot Live - Jai Shree Ram"
-
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=10000)
