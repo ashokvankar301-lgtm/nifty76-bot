@@ -4,7 +4,6 @@ import yfinance as yf
 
 BOT_TOKEN = "8942374145:AAHKpOwaoqhVD5i-jToSZX2tGN-MhZUTDTY"
 app = Flask(__name__)
-
 alerts = {}
 
 def get_nifty_data(symbol="^NSEI"):
@@ -20,8 +19,7 @@ def get_nifty_data(symbol="^NSEI"):
     except: return None
 
 def send_msg(chat_id, text):
-    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                  json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
 
 def check_alerts():
     while True:
@@ -46,26 +44,3 @@ def webhook():
         chat_id = data["message"]["chat"]["id"]
         text = data["message"].get("text","").strip()
         if text == "/start":
-            send_msg(chat_id, "Jai Shree Ram Bhai! 🚀\n\n*Nifty 76 Ready!*\n📊 /nifty - Live\n🏦 /banknifty\n🔔 /alert 23300")
-        elif text.startswith("/nifty"):
-            info = get_nifty_data("^NSEI")
-            msg = f"📊 *NIFTY: {info[0]}* ({info[1]}, {info[2]}%)" if info else "Market band hai, Last: 23398.1"
-            send_msg(chat_id, msg)
-        elif text.startswith("/banknifty"):
-            info = get_nifty_data("^NSEBANK")
-            msg = f"🏦 *BANKNIFTY: {info[0]}*" if info else "Data nahi mila"
-            send_msg(chat_id, msg)
-        elif text.startswith("/alert"):
-            parts = text.split()
-            if len(parts)>1 and parts[1].replace('.','',1).isdigit():
-                lvl=float(parts[1]); alerts.setdefault(chat_id, []).append(lvl)
-                send_msg(chat_id, f"✅ Alert set: *{lvl}*")
-            else:
-                l=alerts.get(chat_id,[]); send_msg(chat_id, f"Alerts: {l}" if l else "Use: /alert 23300")
-    return "ok",200
-
-@app.route('/')
-def home(): return "Nifty76 Live Running!"
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",10000)))
