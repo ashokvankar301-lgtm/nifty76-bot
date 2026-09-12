@@ -1,61 +1,53 @@
 from flask import Flask, request
-import os, requests
-
+import os, requests, datetime
 app = Flask(__name__)
 TOKEN = os.environ.get("BOT_TOKEN")
-
-def get_live_price(symbol):
+def send(chat_id, text, buttons=None):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if buttons:
+        data["reply_markup"] = {"inline_keyboard": buttons}
+    requests.post(url, json=data)
+def live(symbol):
     try:
-        # Yahoo Finance se live price
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-        r = requests.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=5).json()
-        price = r['chart']['result'][0]['meta']['regularMarketPrice']
-        change = r['chart']['result'][0]['meta']['regularMarketPrice'] - r['chart']['result'][0]['meta']['previousClose']
-        return price, change
+        r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}", headers={"User-Agent":"Mozilla/5.0"}, timeout=5).json()
+        meta = r['chart']['result'][0]['meta']
+        return meta['regularMarketPrice'], meta['regularMarketPrice'] - meta['previousClose']
     except:
         return None, None
 
-def reply(chat_id, text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
-
 @app.route("/")
-def home():
-    return "Nifty76 Bot Live Hai!"
-
+def home(): return "Nifty76 ALL GREAT LIVE!"
 @app.route("/webhook", methods=["POST"])
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     data = request.get_json()
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
-        msg = data["message"].get("text", "")
-
-        if msg == "/start":
-            reply(chat_id, "Jai Shree Ram Bhai! 🙏\n\n<b>Nifty 76 Bot Ready Hai!</b>\n/nifty - Nifty 50 LIVE\n/banknifty - Bank Nifty LIVE\n/signals - Aaj ke Signals")
-
-        elif msg == "/nifty":
-            price, chg = get_live_price("^NSEI")
-            if price:
-                emoji = "🟢" if chg>=0 else "🔴"
-                reply(chat_id, f"{emoji} <b>Nifty 50 LIVE</b>\n\nPrice: <b>{price:.2f}</b>\nChange: {chg:+.2f}\n\nTrend: {'Bullish' if chg>=0 else 'Bearish'} Hai Bhai!")
-            else:
-                reply(chat_id, "Market band hai Bhai, abhi price nahi aa raha!")
-
-        elif msg == "/banknifty":
-            price, chg = get_live_price("^NSEBANK")
-            if price:
-                emoji = "🟢" if chg>=0 else "🔴"
-                reply(chat_id, f"{emoji} <b>Bank Nifty LIVE</b>\n\nPrice: <b>{price:.2f}</b>\nChange: {chg:+.2f}")
-            else:
-                reply(chat_id, "Bank Nifty data abhi nahi aa raha!")
-
-        elif msg == "/signals":
-            reply(chat_id, "🎯 <b>Aaj ka Signal (76 Strategy)</b>\n\nNIFTY 22500 CE BUY ABOVE 120\nSL: 80 | TGT: 150 / 200\n\nRisk apna dekh ke trade karna Bhai!")
-
-        else:
-            reply(chat_id, f"Tune bheja: {msg}\n/start dabaa!")
+        msg = data["message"].get("text","").lower()
+        if "/start" in msg:
+            btns = [[{"text":"📈 Nifty Live","callback_data":"nifty"},{"text":"🏦 BankNifty","callback_data":"bank"}]]
+            send(chat_id, "Jai Shree Ram Bhai! 🙏\n<b>🔥 Nifty 76 - ALL GREAT BOT 🔥</b>", btns)
+        elif "/nifty" in msg:
+            p,c = live("^NSEI")
+            if p: send(chat_id, f"{'🟢' if c>=0 else '🔴'} <b>NIFTY {p:.2f} ({c:+.2f})</b>")
+        elif "bank" in msg:
+            p,c = live("^NSEBANK")
+            if p: send(chat_id, f"🏦 <b>BANK NIFTY {p:.2f} ({c:+.2f})</b>")
+        elif "signal" in msg:
+            p,c = live("^NSEI")
+            send(chat_id, f"🎯 <b>76 SIGNAL:</b> Nifty {p} pe trade dekho Bhai!")
+        elif "chart" in msg:
+            send(chat_id, "📊 Chart: https://in.tradingview.com/symbols/NSE-NIFTY/")
+    if "callback_query" in data:
+        q = data["callback_query"]
+        chat_id = q["message"]["chat"]["id"]
+        d = q["data"]
+        p,c = live("^NSEI")
+        if d=="nifty": send(chat_id, f"📈 Nifty: {p}")
+        if d=="bank":
+            p,c = live("^NSEBANK")
+            send(chat_id, f"🏦 Bank: {p}")
     return "ok"
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
