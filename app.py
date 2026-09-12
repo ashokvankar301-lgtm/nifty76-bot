@@ -1,29 +1,40 @@
-import os
-import requests
 from flask import Flask, request
+import requests, os
 
-BOT_TOKEN = "8942374145:AAHKpOwaoqhVD5i-jToSZX2tGN-MhZUTDTY"
 app = Flask(__name__)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-@app.route('/' + BOT_TOKEN, methods=['POST'])
+def send_msg(chat_id, text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+
+@app.route('/', methods=['POST'])
 def webhook():
     data = request.get_json()
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+        text = data["message"].get("text","").lower()
         
-        if text == "/start":
-            reply = "Jai Shree Ram Bhai! 🚀 Bot Live ho gaya hai! Nifty 76 ready hai!"
-        else:
-            reply = "Bolo kya chahiye?"
+        if "/start" in text:
+            msg = """*Jai Shree Ram Bhai! 🚀*
+
+*Nifty 76 Bot Ready Hai!*
+
+Commands:
+📊 `/nifty` - Nifty 50 Live
+📈 `/banknifty` - Bank Nifty
+🔥 `/signals` - Aaj ke signals
+
+Bolo kya chahiye?"""
+            send_msg(chat_id, msg)
         
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-                      json={"chat_id": chat_id, "text": reply})
-    return "ok", 200
+        elif "nifty" in text or "bank" in text or "signal" in text:
+            send_msg(chat_id, "Bhai abhi Nifty 76 ka full logic add kar raha hu... 2 min me live indicators aayenge! 📈")
+        
+    return "ok"
 
 @app.route('/')
-def home():
-    return "Nifty76 Bot is Live!"
+def home(): return "Nifty76 Bot Live - Jai Shree Ram"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run()
